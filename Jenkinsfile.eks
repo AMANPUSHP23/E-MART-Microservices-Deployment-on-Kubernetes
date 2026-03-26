@@ -1,0 +1,145 @@
+pipeline {
+    agent any
+
+    tools {
+        nodejs "node18"
+    }
+
+    environment {
+        DOCKER_USERNAME = "amanpushp"
+        DOCKER_IMAGE_NAME = "pastdockerimage"
+        GITHUB_REPO_URL = "https://github.com/AMANPUSHP23/E-MART-Microservices-Deployment-on-Kubernetes.git"
+        SONARQUBE_ENV = "mysonar"
+    }
+
+    stages {
+
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Clone Code') {
+            steps {
+                git url: "${GITHUB_REPO_URL}", branch: "main"
+            }
+        }
+
+        stage('SonarQube Scan') {
+            steps {
+                withSonarQubeEnv("${SONARQUBE_ENV}") {
+                    script {
+                        def scannerHome = tool 'sonar-scanner'
+                        sh """
+                        ${scannerHome}/bin/sonar-scanner \
+                        -Dsonar.projectName=e-mart-eks-pipeline \
+                        -Dsonar.projectKey=e-mart-eks-pipeline
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: false
+                }
+            }
+        }
+
+        stage('Install Dependencies') {
+            parallel {
+                stage('Install Client Dependencies') {
+                    steps {
+                        dir('client') {
+                            sh "npm install"
+                        }
+                    }
+                }
+                stage('Install Node API Dependencies') {
+                    steps {
+                        dir('nodeapi') {
+                            sh "npm install"
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('OWASP Dependency Check') {
+            steps {
+                sh """
+                /opt/dependency-check/bin/dependency-check.sh \
+                --scan . \
+                --format HTML \
+                --out dependency-check-report || true
+                """
+            }
+        }
+
+        stage('Trivy File Scan') {
+            steps {
+                sh "trivy fs . || true"
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                sh "docker build -t ${DOCKER_USERNAME}/${DOCKER_IMAGE_NAME}:latest ."
+            }
+        }
+
+        stage('Trivy Image Scan') {
+            steps {
+                sh "trivy image ${DOCKER_USERNAME}/${DOCKER_IMAGE_NAME}:latest || true"
+            }
+        }
+
+        stage('Docker Login') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'USER',
+                    passwordVariable: 'PASS'
+                )]) {
+                    sh 'echo $PASS | docker login -u $USER --password-stdin'
+                }
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                sh "docker push ${DOCKER_USERNAME}/${DOCKER_IMAGE_NAME}:latest"
+            }
+        }
+
+        stage('Deploy to EKS') {
+            steps {
+                sh '''
+                kubectl apply -f deployment.yaml
+                kubectl apply -f service.yaml
+                kubectl rollout restart deployment docker-app
+                '''
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                sh "kubectl rollout status deployment/docker-app"
+                sh "kubectl get pods -o wide"
+                sh "kubectl get svc"
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "PIPELINE SUCCESS - DEPLOYED TO AWS EKS"
+        }
+        failure {
+            echo "PIPELINE FAILED - CHECK LOGS"
+        }
+    }
+}

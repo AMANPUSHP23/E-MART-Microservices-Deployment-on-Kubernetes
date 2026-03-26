@@ -435,6 +435,53 @@ all in the same repository.
 
 ---
 
+## Alternative Jenkins to EKS Pipeline
+
+This repository now also includes an alternative Jenkins pipeline in [`Jenkinsfile.eks`](./Jenkinsfile.eks) for a DockerHub to AWS EKS workflow.
+
+Pipeline flow:
+
+1. Clean Jenkins workspace
+2. Clone the GitHub repository
+3. Run SonarQube scan and wait for quality gate
+4. Install dependencies for `client` and `nodeapi`
+5. Run OWASP Dependency Check
+6. Run Trivy filesystem scan
+7. Build the root Docker image
+8. Run Trivy image scan
+9. Login to DockerHub and push the image
+10. Deploy to EKS with `kubectl`
+11. Verify rollout status and service state
+
+Supporting files:
+
+- [`Jenkinsfile.eks`](./Jenkinsfile.eks)
+- [`deployment.yaml`](./deployment.yaml)
+- [`service.yaml`](./service.yaml)
+- [`sonar-project.properties`](./sonar-project.properties)
+
+### What This Pipeline Deploys
+
+This EKS pipeline deploys the root Docker image built from [`Dockerfile`](./Dockerfile). That image packages:
+
+- Angular frontend build artifacts
+- Node.js backend runtime
+
+It does not package the separate Spring Boot service or the backing databases into the same image. If you want a full multi-service EKS deployment, the better long-term approach is to extend the Kubernetes manifests or continue using the Helm chart structure already present in [`kkartchart/`](./kkartchart).
+
+### Jenkins Prerequisites
+
+To run [`Jenkinsfile.eks`](./Jenkinsfile.eks), Jenkins should already have:
+
+- NodeJS tool named `node18`
+- Sonar scanner tool named `sonar-scanner`
+- SonarQube server config named `mysonar`
+- DockerHub credential with ID `dockerhub-creds`
+- `kubectl`, `docker`, `trivy`, and OWASP Dependency Check installed on the Jenkins agent
+- kubeconfig or IAM-backed cluster access for the target AWS EKS cluster
+
+---
+
 ## Kubernetes and Helm
 
 The Helm chart lives in [`kkartchart/`](./kkartchart) and is organized into:
