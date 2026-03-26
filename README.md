@@ -237,6 +237,122 @@ The root [`docker-compose.yaml`](./docker-compose.yaml) starts:
 
 ---
 
+## Run on AWS EC2
+
+This project can be deployed on an EC2 Linux server with Docker Compose. The simplest path is:
+
+1. Launch an Ubuntu EC2 instance.
+2. Install Docker and Docker Compose.
+3. Clone this repository onto the server.
+4. Start the stack with `docker compose up --build -d`.
+5. Access the app through the EC2 public IP or a domain pointed to the instance.
+
+### Recommended EC2 Setup
+
+- AMI: Ubuntu 22.04 LTS or Ubuntu 20.04 LTS
+- Instance type: `t2.medium` or larger recommended for running all services together
+- Storage: at least `20 GB`
+- Security Group inbound rules:
+  - `22` for SSH
+  - `80` for HTTP
+  - `4200` optional, only if you want direct frontend access
+  - `5000` optional, only if you want direct Node API access
+  - `9000` optional, only if you want direct Spring API access
+
+For a cleaner public deployment, expose only `22` and `80`, then use NGINX as the entrypoint.
+
+### 1. Connect to the Server
+
+```bash
+ssh -i your-key.pem ubuntu@<EC2_PUBLIC_IP>
+```
+
+### 2. Install Docker and Docker Compose
+
+The repository already includes notes in [`intDockerAndCompose.txt`](./intDockerAndCompose.txt). On Ubuntu, the flow is:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl gnupg lsb-release
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+sudo usermod -aG docker ubuntu
+newgrp docker
+```
+
+### 3. Clone the Repository
+
+```bash
+git clone https://github.com/AMANPUSHP23/E-MART-Microservices-Deployment-on-Kubernetes.git
+cd E-MART-Microservices-Deployment-on-Kubernetes
+```
+
+If your extracted folder name differs, enter the folder that contains `docker-compose.yaml`.
+
+### 4. Start the Full Stack
+
+```bash
+docker compose up --build -d
+```
+
+To verify the containers:
+
+```bash
+docker compose ps
+```
+
+To inspect logs:
+
+```bash
+docker compose logs -f
+```
+
+### 5. Open the Application
+
+Use the EC2 public IP:
+
+```text
+http://<EC2_PUBLIC_IP>/
+```
+
+If port `80` is open in the security group and the containers are healthy, the NGINX gateway should route:
+
+- `/` to the Angular frontend
+- `/api` to the Node API
+- `/webapi` to the Spring Boot API
+
+### 6. Stop or Restart
+
+```bash
+docker compose down
+docker compose up -d
+```
+
+### Optional: Run on a Domain
+
+If you attach a domain to the EC2 public IP:
+
+1. Create an `A` record pointing the domain to the instance IP.
+2. Keep port `80` open in the security group.
+3. Update NGINX config later if you want HTTPS with a reverse proxy and certificates.
+
+### Important Server Notes
+
+- The current project stores secrets directly in source files. Do not treat this as production-safe.
+- The current Compose file does not define persistent database volumes, so container recreation can risk data loss.
+- For a public server, restrict direct access to ports `5000`, `9000`, `27017`, and `3306`.
+- If Docker starts after a reboot, consider enabling the service:
+
+```bash
+sudo systemctl enable docker
+```
+
+---
+
 ## Container Files
 
 | File | Role |
