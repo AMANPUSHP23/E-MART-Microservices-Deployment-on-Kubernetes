@@ -450,24 +450,30 @@ Pipeline flow:
 7. Build the root Docker image
 8. Run Trivy image scan
 9. Login to DockerHub and push the image
-10. Deploy to EKS with `kubectl`
-11. Verify rollout status and service state
+10. Deploy to EKS with Helm
+11. Verify rollout status, service state, and Helm release state
 
 Supporting files:
 
 - [`Jenkinsfile.eks`](./Jenkinsfile.eks)
-- [`deployment.yaml`](./deployment.yaml)
-- [`service.yaml`](./service.yaml)
 - [`sonar-project.properties`](./sonar-project.properties)
+- [`kkartchart/charts/backend`](./kkartchart/charts/backend)
 
 ### What This Pipeline Deploys
 
-This EKS pipeline deploys the root Docker image built from [`Dockerfile`](./Dockerfile). That image packages:
+This EKS pipeline deploys the root Docker image built from [`Dockerfile`](./Dockerfile) through the existing backend Helm chart. That image packages:
 
 - Angular frontend build artifacts
 - Node.js backend runtime
 
-It does not package the separate Spring Boot service or the backing databases into the same image. If you want a full multi-service EKS deployment, the better long-term approach is to extend the Kubernetes manifests or continue using the Helm chart structure already present in [`kkartchart/`](./kkartchart).
+For this EKS path, the chart is configured to:
+
+- deploy the `main` Node-based workload
+- disable the `books` workload
+- disable ingress
+- expose the service as `LoadBalancer`
+
+It does not package the separate Spring Boot service or the backing databases into the same image. If you want a full multi-service EKS deployment, the better long-term approach is to extend the existing Helm release strategy already present in [`kkartchart/`](./kkartchart).
 
 ### Jenkins Prerequisites
 
@@ -477,7 +483,7 @@ To run [`Jenkinsfile.eks`](./Jenkinsfile.eks), Jenkins should already have:
 - Sonar scanner tool named `sonar-scanner`
 - SonarQube server config named `mysonar`
 - DockerHub credential with ID `dockerhub-creds`
-- `kubectl`, `docker`, `trivy`, and OWASP Dependency Check installed on the Jenkins agent
+- `helm`, `kubectl`, `docker`, `trivy`, and OWASP Dependency Check installed on the Jenkins agent
 - kubeconfig or IAM-backed cluster access for the target AWS EKS cluster
 
 ---

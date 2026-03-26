@@ -1,3 +1,16 @@
+main:
+  enabled: true
+
+books:
+  enabled: true
+
+ingress:
+  enabled: true
+  host: kubekart.k8sengineers.com
+  path:
+    main: /api
+    books: /webapi
+
 image:
   books: 
     repository: repository.k8sengineers.com/apexrepo/books
@@ -12,8 +25,3 @@ service:
   main:
     port: 5000
     type: ClusterIP
-ingress:
-  host: kubekart.k8sengineers.com
-  path:
-    main: /api
-    books: /webapi

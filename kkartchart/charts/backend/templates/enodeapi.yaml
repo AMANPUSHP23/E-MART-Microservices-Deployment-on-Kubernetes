@@ -1,3 +1,4 @@
+{{- if .Values.main.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -23,4 +24,4 @@ spec:
           containerPort: 5000
       imagePullSecrets:
       - name: regcred 
-     
+{{- end }}

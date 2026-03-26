@@ -1,3 +1,4 @@
+{{- if .Values.ingress.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -9,6 +10,7 @@ spec:
   - host: {{ .Values.ingress.host }}
     http:
       paths:
+      {{- if .Values.main.enabled }}
       - path: {{ .Values.ingress.path.main }}
         pathType: Prefix
         backend:
@@ -16,6 +18,8 @@ spec:
            name: {{ .Release.Name }}-{{ .Chart.Name }}-main
            port: 
              number: 5000
+      {{- end }}
+      {{- if .Values.books.enabled }}
       - path: {{ .Values.ingress.path.books }}
         pathType: Prefix
         backend:
@@ -23,3 +27,5 @@ spec:
            name: {{ .Release.Name }}-{{ .Chart.Name }}-books
            port: 
              number: 9000
+      {{- end }}
+{{- end }}

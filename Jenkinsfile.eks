@@ -115,21 +115,26 @@ pipeline {
             }
         }
 
-        stage('Deploy to EKS') {
+        stage('Deploy to EKS with Helm') {
             steps {
                 sh '''
-                kubectl apply -f deployment.yaml
-                kubectl apply -f service.yaml
-                kubectl rollout restart deployment docker-app
+                helm upgrade e-mart-eks kkartchart/charts/backend --install \
+                  --set main.enabled=true \
+                  --set books.enabled=false \
+                  --set ingress.enabled=false \
+                  --set image.main.repository=${DOCKER_USERNAME}/${DOCKER_IMAGE_NAME} \
+                  --set image.main.tag=latest \
+                  --set service.main.type=LoadBalancer
                 '''
             }
         }
 
         stage('Verify Deployment') {
             steps {
-                sh "kubectl rollout status deployment/docker-app"
+                sh "kubectl rollout status deployment/e-mart-eks-kkartcharts-backend-main"
                 sh "kubectl get pods -o wide"
                 sh "kubectl get svc"
+                sh "helm list"
             }
         }
     }
